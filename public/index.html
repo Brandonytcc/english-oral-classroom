@@ -44,16 +44,17 @@
         <h2>老师入口</h2>
         <div class="tabs">
           <button class="tab active" data-teachertab="create">创建班级</button>
-          <button class="tab" data-teachertab="login">登录班级</button>
+          <button class="tab" data-teachertab="login">教师登录</button>
         </div>
         <div id="teacher-create" class="tabpane">
-          <label>班级名称<input id="t-name" placeholder="如：初一(3)班" /></label>
+          <label>教师姓名<input id="t-tname" placeholder="如：王老师" /></label>
           <label>教师密码（≥4 位）<input id="t-pwd" type="password" placeholder="用于管理班级" /></label>
+          <label>班级名称<input id="t-cname" placeholder="如：初一(3)班" /></label>
           <button class="btn primary" id="btnCreateClass">创建并进入</button>
         </div>
         <div id="teacher-login" class="tabpane hidden">
-          <label>班级码<input id="t-code" placeholder="6 位班级码" /></label>
-          <label>密码<input id="t-pwd2" type="password" placeholder="教师密码" /></label>
+          <label>教师姓名<input id="t-lname" placeholder="如：王老师" /></label>
+          <label>密码<input id="t-lpwd" type="password" placeholder="教师密码" /></label>
           <button class="btn primary" id="btnTeacherLogin">登录</button>
         </div>
         <button class="btn ghost back" data-goto="home">← 返回</button>

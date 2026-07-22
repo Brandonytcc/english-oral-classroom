@@ -72,25 +72,44 @@ function localWordScore(target, said) {
 }
 
 /* ----------------------------- 角色与鉴权 ----------------------------- */
-// 老师创建班级
+// 教师身份：同一教师（姓名+密码）可归属多个班级，teacher_token 稳定
+function teacherTokenOf(name, password) {
+  return crypto.createHash('sha256').update('T|' + String(name).trim().toLowerCase() + '|' + password).digest('hex');
+}
+function classListOf(token) {
+  return db.prepare('SELECT code,name FROM classes WHERE teacher_token=? ORDER BY created_at').all(token);
+}
+// 老师创建班级（同时作为教师账号注册/登录）
 app.post('/api/teacher/register', (req, res) => {
-  const { name, password } = req.body || {};
-  if (!name || !name.trim()) return res.status(400).json({ error: '请填写班级名称' });
+  const { teacherName, password, className } = req.body || {};
+  if (!teacherName || !teacherName.trim()) return res.status(400).json({ error: '请填写教师姓名' });
   if (!password || password.length < 4) return res.status(400).json({ error: '教师密码至少 4 位' });
+  if (!className || !className.trim()) return res.status(400).json({ error: '请填写班级名称' });
+  const tToken = teacherTokenOf(teacherName, password);
+  const exist = db.prepare('SELECT * FROM teachers WHERE token=?').get(tToken);
+  if (!exist) db.prepare('INSERT INTO teachers(name,token,pwd,created_at) VALUES(?,?,?,?)')
+    .run(teacherName.trim(), tToken, pwdHash(password, 'T' + teacherName.trim().toLowerCase()), Date.now());
   const code = genCode();
-  const teacherToken = genToken();
   db.prepare('INSERT INTO classes(code,name,teacher_token,teacher_pwd,created_at) VALUES(?,?,?,?,?)')
-    .run(code, name.trim(), teacherToken, pwdHash(password, code), Date.now());
-  res.json({ code, teacherToken, name: name.trim() });
+    .run(code, className.trim(), tToken, pwdHash(password, code), Date.now());
+  res.json({ teacherToken: tToken, teacherName: teacherName.trim(), code, className: className.trim(), classes: classListOf(tToken) });
 });
 
-// 老师登录
+// 老师登录（按教师姓名+密码，返回其名下所有班级）
 app.post('/api/teacher/login', (req, res) => {
-  const { code, password } = req.body || {};
-  const cls = db.prepare('SELECT * FROM classes WHERE code=?').get(String(code || '').toUpperCase());
-  if (!cls || cls.teacher_pwd !== pwdHash(password || '', cls.code))
-    return res.status(401).json({ error: '班级码或密码错误' });
-  res.json({ teacherToken: cls.teacher_token, name: cls.name, code: cls.code });
+  const { teacherName, password } = req.body || {};
+  if (!teacherName || !password) return res.status(400).json({ error: '请填写教师姓名和密码' });
+  const tToken = teacherTokenOf(teacherName, password);
+  const t = db.prepare('SELECT * FROM teachers WHERE token=?').get(tToken);
+  if (!t) return res.status(401).json({ error: '教师账号不存在，请检查姓名或密码' });
+  res.json({ teacherToken: tToken, teacherName: t.name, classes: classListOf(tToken) });
+});
+
+// 老师查看名下班级
+app.get('/api/teacher/classes', (req, res) => {
+  const token = tokenFromReq(req);
+  if (!token) return res.status(401).json({ error: '未授权' });
+  res.json({ classes: classListOf(token) });
 });
 
 // 学生加入
@@ -160,12 +179,22 @@ app.post('/api/assignments', (req, res) => {
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
-// 班级作业列表
+// 班级作业列表（学生请求时附带「是否已提交」「我的分数」）
 app.get('/api/classes/:code/assignments', (req, res) => {
   const token = tokenFromReq(req);
   const m = resolveMember(req.params.code, token);
   if (m.error) return res.status(m.error === 404 ? 404 : 401).json({ error: '未授权' });
-  const list = db.prepare('SELECT * FROM assignments WHERE class_id=? ORDER BY created_at DESC').all(m.cls.id);
+  const isStudent = m.member.role === 'student';
+  const list = db.prepare('SELECT * FROM assignments WHERE class_id=? ORDER BY created_at DESC').all(m.cls.id)
+    .map(a => {
+      const item = { id: a.id, title: a.title, ref_text: a.ref_text, type: a.type, words_json: a.words_json, due_date: a.due_date, required_minutes: a.required_minutes, created_at: a.created_at };
+      if (isStudent) {
+        const sub = db.prepare('SELECT score FROM submissions WHERE assignment_id=? AND student_id=? ORDER BY created_at DESC LIMIT 1').get(a.id, m.member.student.id);
+        item.submitted = !!sub;
+        item.myScore = sub ? sub.score : null;
+      }
+      return item;
+    });
   res.json({ assignments: list });
 });
 

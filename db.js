@@ -10,6 +10,13 @@ const db = new DatabaseSync(path.join(DATA_DIR, 'app.db'));
 db.exec('PRAGMA foreign_keys = ON;');
 
 db.exec(`
+CREATE TABLE IF NOT EXISTS teachers (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  token      TEXT UNIQUE NOT NULL,
+  pwd        TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS classes (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   code          TEXT UNIQUE NOT NULL,

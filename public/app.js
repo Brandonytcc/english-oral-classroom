@@ -18,6 +18,19 @@ async function api(path, opts={}){
 let toastTimer;
 function toast(msg,kind=''){const t=$('#toast');t.textContent=msg;t.className='toast '+(kind||'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.add('hidden'),2600);}
 
+// 作业到期状态：none / ok / soon / expired
+function dueInfo(due){
+  if(!due) return {state:'none', text:'无截止'};
+  const d=new Date(due+'T23:59:59');
+  if(isNaN(d.getTime())) return {state:'none', text:String(due)};
+  const diff=d.getTime()-Date.now();
+  if(diff<0) return {state:'expired', text:'已过期'};
+  const h=diff/3600000;
+  if(h<24) return {state:'soon', text:'即将到期·剩'+Math.max(1,Math.ceil(h))+'小时'};
+  const days=Math.floor(h/24);
+  return {state:'ok', text:'还剩 '+days+' 天'};
+}
+
 /* ===================== 语音 / 录音 ===================== */
 function speechSupported(){return !!(window.SpeechRecognition||window.webkitSpeechRecognition);}
 function speechOnce(onResult,onError){
@@ -62,12 +75,49 @@ function goto(id){
 }
 function enterTeacher(cls){
   S.role='teacher';S.code=cls.code;S.token=cls.teacherToken;S.clsName=cls.name;
+  if(cls.teacherName)S.teacherName=cls.teacherName;
   localStorage.setItem(LS_T,JSON.stringify(S));
   $('#topbar').classList.remove('hidden');
   $('#topClass').textContent='班级：'+cls.name+'（'+cls.code+'）';
-  $('#topRole').textContent='老师';
+  $('#topRole').textContent='老师'+(S.teacherName?(' · '+S.teacherName):'');
   show('view-teacher');
   setTeacherTab('board');
+}
+function switchClass(code,name){
+  S.code=code;S.clsName=name;
+  localStorage.setItem(LS_T,JSON.stringify(S));
+  $('#topClass').textContent='班级：'+name+'（'+code+'）';
+  setTeacherTab('board');
+}
+// 教师登录后：一个班级直接进，多个班级弹选择器
+function handleTeacherEntry(data){
+  S.teacherName=data.teacherName; S.token=data.teacherToken;
+  if(data.classes.length===1){
+    const c=data.classes[0];
+    enterTeacher({code:c.code,teacherToken:data.teacherToken,name:c.name,teacherName:data.teacherName});
+  }else{
+    showClassPicker(data.teacherToken,data.teacherName,data.classes);
+  }
+}
+function showClassPicker(token,teacherName,classes){
+  const mask=el('div',{className:'modal-mask'});
+  const m=el('div',{className:'modal'});
+  m.append(el('h3',{},'我的班级 · '+(teacherName||'')));
+  m.append(el('div',{className:'muted'},'选择要进入的班级，或创建新班级。'));
+  const list=el('div',{className:'list'});
+  classes.forEach(c=>{
+    const enter=el('button',{className:'btn primary sm',textContent:'进入',onclick:()=>{mask.remove();enterTeacher({code:c.code,teacherToken:token,name:c.name,teacherName});}});
+    const del=el('button',{className:'btn danger sm',textContent:'删除',onclick:async()=>{
+      if(!confirm('确定删除班级「'+c.name+'」？该操作不可恢复。'))return;
+      try{await api('/classes/'+c.code,{method:'DELETE'});toast('已删除','ok');showClassPicker(token,teacherName,(await api('/teacher/classes')).classes);}catch(e){toast(e.message,'err');}
+    }});
+    list.append(el('div',{className:'item'},el('div',{className:'board-rank'},el('div',{},el('div',{className:'title'},c.name),el('div',{className:'meta'},'班级码 '+c.code))),el('div',{className:'row'},enter,del)));
+  });
+  m.append(list);
+  const newBtn=el('button',{className:'btn ghost',textContent:'+ 创建新班级',onclick:()=>{mask.remove();goto('teacher-auth');$('[data-teachertab="create"]').click();}});
+  const logoutBtn=el('button',{className:'btn ghost',textContent:'退出登录',onclick:()=>{mask.remove();logout();}});
+  m.append(el('div',{className:'row'},newBtn,logoutBtn));
+  mask.append(m);document.body.append(mask);
 }
 function enterStudent(st){
   S.role='student';S.code=st.code;S.token=st.token;S.name=st.name;S.clsName=st.className;
@@ -97,15 +147,16 @@ $$('[data-teachertab]').forEach(t=>t.addEventListener('click',()=>{
 
 $('#btnCreateClass').addEventListener('click',async()=>{
   try{
-    const cls=await api('/teacher/register',{method:'POST',body:{name:$('#t-name').value,password:$('#t-pwd').value}});
+    const cls=await api('/teacher/register',{method:'POST',body:{teacherName:$('#t-tname').value,password:$('#t-pwd').value,className:$('#t-cname').value}});
     toast('班级已创建，班级码：'+cls.code,'ok');
-    enterTeacher(cls);
+    enterTeacher({code:cls.code,teacherToken:cls.teacherToken,name:cls.className,teacherName:cls.teacherName});
   }catch(e){toast(e.message,'err');}
 });
 $('#btnTeacherLogin').addEventListener('click',async()=>{
   try{
-    const cls=await api('/teacher/login',{method:'POST',body:{code:$('#t-code').value,password:$('#t-pwd2').value}});
-    enterTeacher(cls);
+    const data=await api('/teacher/login',{method:'POST',body:{teacherName:$('#t-lname').value,password:$('#t-lpwd').value}});
+    toast('登录成功','ok');
+    handleTeacherEntry(data);
   }catch(e){toast(e.message,'err');}
 });
 $('#btnStudentJoin').addEventListener('click',async()=>{
@@ -211,10 +262,11 @@ async function renderAssignments(){
     if(!assignments.length)list.append(el('div',{className:'empty'},'还没有作业'));
     assignments.forEach(a=>{
       const item=el('div',{className:'item'});
+      const di=dueInfo(a.due_date);
       item.append(el('div',{className:'title'},a.title),
         el('div',{className:'meta'},[
           el('span',{className:'tag'+(a.type==='words'?' words':'')},a.type==='words'?'单词朗读':'短文朗读'),
-          document.createTextNode(a.due_date?('截止 '+a.due_date):'无截止')
+          el('span',{className:'due due-'+di.state},di.text)
         ]));
       const viewBtn=el('button',{className:'btn sm',textContent:'查看提交'});
       viewBtn.onclick=()=>viewSubmissions(a);
@@ -454,25 +506,44 @@ async function openMatch(who){
   }catch(e){box.append(el('div',{className:'empty'},'加载失败：'+e.message));}
 }
 
-/* ===================== 老师：设置（删除班级） ===================== */
-function renderSettings(){
+/* ===================== 老师：设置（多班级管理 / 删除班级） ===================== */
+async function renderSettings(){
   const box=$('#tab-settings');box.innerHTML='';
   box.append(el('h3',{},'⚙️ 班级设置'));
+  // 我的班级（切换 / 删除 / 新建）
+  box.append(el('h3',{},'🏫 我的班级'));
+  const myList=el('div',{className:'list'});
+  box.append(myList);
+  try{
+    const {classes}=await api('/teacher/classes');
+    if(!classes.length)myList.append(el('div',{className:'empty'},'暂无班级'));
+    classes.forEach(c=>{
+      const isCur=c.code===S.code;
+      const sw=el('button',{className:'btn '+(isCur?'ghost':'primary')+' sm',textContent:isCur?'当前班级':'进入',disabled:isCur,onclick:()=>{if(!isCur){switchClass(c.code,c.name);toast('已切换到 '+c.name,'ok');}}});
+      const del=el('button',{className:'btn danger sm',textContent:'删除',onclick:()=>confirmDeleteClass(c.code,c.name)});
+      myList.append(el('div',{className:'item'+(isCur?' me':'')},el('div',{className:'board-rank'},el('div',{},el('div',{className:'title'},c.name+(isCur?'（当前）':'')),el('div',{className:'meta'},'班级码 '+c.code))),el('div',{className:'row'},sw,del)));
+    });
+  }catch(e){}
+  const newBtn=el('button',{className:'btn primary',textContent:'+ 创建新班级',onclick:()=>goto('teacher-auth')});
+  box.append(el('div',{className:'row'},newBtn));
+  box.append(el('hr',{}));
+  // 删除当前班级
   box.append(el('div',{className:'item'},
-    el('div',{className:'title'},'删除班级'),
+    el('div',{className:'title'},'删除当前班级（'+S.clsName+'）'),
     el('div',{className:'meta'},'删除后，本班所有学生、作业、打卡、单词、成绩将一并清除，且不可恢复。'),
-    el('button',{className:'btn danger',textContent:'删除此班级',onclick:confirmDelete})));
+    el('button',{className:'btn danger',textContent:'删除此班级',onclick:()=>confirmDeleteClass(S.code,S.clsName)})));
 }
-function confirmDelete(){
+function confirmDelete(){ confirmDeleteClass(S.code,S.clsName); }
+function confirmDeleteClass(code,name){
   const mask=el('div',{className:'modal-mask'});
   const m=el('div',{className:'modal'});
-  m.append(el('h3',{},'确认删除班级？'));
-  m.append(el('div',{},'此操作不可恢复。请输入班级码 '+S.code+' 以确认：'));
+  m.append(el('h3',{},'确认删除班级「'+name+'」？'));
+  m.append(el('div',{},'此操作不可恢复。请输入班级码 '+code+' 以确认：'));
   const inp=el('input',{placeholder:'输入班级码'});
   const ok=el('button',{className:'btn danger',textContent:'确认删除'});
   ok.onclick=async()=>{
-    if(inp.value.trim().toUpperCase()!==S.code){toast('班级码不正确','err');return;}
-    try{await api(`/classes/${S.code}`,{method:'DELETE'});localStorage.removeItem(LS_T);toast('班级已删除','ok');logout();}catch(e){toast(e.message,'err');}
+    if(inp.value.trim().toUpperCase()!==code){toast('班级码不正确','err');return;}
+    try{await api('/classes/'+code,{method:'DELETE'});localStorage.removeItem(LS_T);toast('班级已删除','ok');logout();}catch(e){toast(e.message,'err');}
   };
   const cancel=el('button',{className:'btn ghost',textContent:'取消',onclick:()=>mask.remove()});
   m.append(el('div',{className:'row'},cancel,ok));mask.append(m);document.body.append(mask);
@@ -486,11 +557,19 @@ async function renderMyAssign(){
     const {assignments}=await api(`/classes/${S.code}/assignments`);
     const list=el('div',{className:'list'});
     if(!assignments.length)list.append(el('div',{className:'empty'},'老师还没有布置作业'));
+    // 到期提醒横幅：未提交且临近/已过期的作业
+    const reminders=assignments.filter(a=>!a.submitted && (()=>{const s=dueInfo(a.due_date).state;return s==='soon'||s==='expired';})());
+    if(reminders.length)box.append(el('div',{className:'reminder'},'⏰ 你有 '+reminders.length+' 项作业临近截止或已过期，请尽快完成！'));
     assignments.forEach(a=>{
-      const item=el('div',{className:'item'});
+      const di=dueInfo(a.due_date);
+      const item=el('div',{className:'item'+(a.submitted?' done':'')});
       item.append(el('div',{className:'title'},a.title),
-        el('div',{className:'meta'},[el('span',{className:'tag'+(a.type==='words'?' words':'')},a.type==='words'?'单词朗读':'短文朗读'),document.createTextNode(a.due_date?('截止 '+a.due_date):'无截止')]));
-      const doBtn=el('button',{className:'btn primary sm',textContent:'去做'},);
+        el('div',{className:'meta'},[
+          el('span',{className:'tag'+(a.type==='words'?' words':'')},a.type==='words'?'单词朗读':'短文朗读'),
+          el('span',{className:'due due-'+di.state},di.text),
+          a.submitted?el('span',{className:'due due-ok'},'✓ 已提交 '+(a.myScore!=null?('得分'+a.myScore):'')):''
+        ].filter(Boolean)));
+      const doBtn=el('button',{className:'btn primary sm',textContent:a.submitted?'重做':'去做'});
       doBtn.onclick=()=>doAssignment(a);
       item.append(el('div',{className:'row'},doBtn));
       list.append(item);

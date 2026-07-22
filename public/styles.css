@@ -54,6 +54,18 @@ input:focus,textarea:focus{outline:2px solid #c6d6ff;border-color:var(--primary)
 .tag{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--primary);margin-right:6px}
 .tag.words{background:#fdeef0;color:var(--danger)}
 
+/* 到期状态徽标 */
+.due{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;margin-right:6px;font-weight:600}
+.due-none{background:#eef2fb;color:var(--muted)}
+.due-ok{background:#e7f6ef;color:var(--ok)}
+.due-soon{background:#fff3df;color:var(--warn)}
+.due-expired{background:#fde7ea;color:var(--danger)}
+
+/* 到期提醒横幅 */
+.reminder{background:#fff3df;color:var(--warn);border:1px solid #f6dca6;border-radius:12px;padding:10px 14px;font-weight:600;margin-bottom:14px}
+.item.done{opacity:.85}
+.item.done .title{color:var(--ok)}
+
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:14px}
 th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
 th{background:var(--soft);color:var(--muted);font-weight:600}
