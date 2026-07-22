@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>英语口语课堂 · 评测与打卡</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header id="topbar" class="topbar hidden">
+    <div class="brand">🗣️ 英语口语课堂</div>
+    <div class="topinfo">
+      <span id="topClass"></span>
+      <span id="topRole"></span>
+      <button id="btnLogout" class="btn ghost">退出</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 首页 / 选择身份 -->
+    <section id="view-home" class="view">
+      <div class="hero">
+        <h1>英语口语评测 · 每日打卡</h1>
+        <p>适合初中英语水平的口语评测、班级排行榜、每日打卡，以及课堂单词游戏。</p>
+      </div>
+      <div class="role-cards">
+        <div class="card" id="card-teacher">
+          <h2>👩‍🏫 我是老师</h2>
+          <p>创建班级、布置作业、点名、管理单词、看成绩、导出 Excel。</p>
+          <button class="btn primary" data-goto="teacher-auth">进入</button>
+        </div>
+        <div class="card" id="card-student">
+          <h2>🧑‍🎓 我是学生</h2>
+          <p>用班级码加入，完成口语作业与每日打卡，参与课堂抢答与游戏。</p>
+          <button class="btn primary" data-goto="student-join">进入</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 老师：创建 / 登录 -->
+    <section id="view-teacher-auth" class="view hidden">
+      <div class="panel">
+        <h2>老师入口</h2>
+        <div class="tabs">
+          <button class="tab active" data-teachertab="create">创建班级</button>
+          <button class="tab" data-teachertab="login">登录班级</button>
+        </div>
+        <div id="teacher-create" class="tabpane">
+          <label>班级名称<input id="t-name" placeholder="如：初一(3)班" /></label>
+          <label>教师密码（≥4 位）<input id="t-pwd" type="password" placeholder="用于管理班级" /></label>
+          <button class="btn primary" id="btnCreateClass">创建并进入</button>
+        </div>
+        <div id="teacher-login" class="tabpane hidden">
+          <label>班级码<input id="t-code" placeholder="6 位班级码" /></label>
+          <label>密码<input id="t-pwd2" type="password" placeholder="教师密码" /></label>
+          <button class="btn primary" id="btnTeacherLogin">登录</button>
+        </div>
+        <button class="btn ghost back" data-goto="home">← 返回</button>
+      </div>
+    </section>
+
+    <!-- 学生：加入 -->
+    <section id="view-student-join" class="view hidden">
+      <div class="panel">
+        <h2>学生加入班级</h2>
+        <label>班级码<input id="s-code" placeholder="老师提供的 6 位班级码" /></label>
+        <label>你的姓名<input id="s-name" placeholder="如：张三" /></label>
+        <button class="btn primary" id="btnStudentJoin">加入班级</button>
+        <button class="btn ghost back" data-goto="home">← 返回</button>
+      </div>
+    </section>
+
+    <!-- 老师工作台 -->
+    <section id="view-teacher" class="view hidden">
+      <nav class="sidenav">
+        <button class="navbtn active" data-tab="board">成绩榜</button>
+        <button class="navbtn" data-tab="assignments">口语作业</button>
+        <button class="navbtn" data-tab="checkin">每日打卡</button>
+        <button class="navbtn" data-tab="rollcall">上课点名</button>
+        <button class="navbtn" data-tab="words">单词库</button>
+        <button class="navbtn" data-tab="game">单词游戏</button>
+        <button class="navbtn danger" data-tab="settings">设置</button>
+      </nav>
+      <div class="content">
+        <div id="tab-board" class="tabpane"></div>
+        <div id="tab-assignments" class="tabpane hidden"></div>
+        <div id="tab-checkin" class="tabpane hidden"></div>
+        <div id="tab-rollcall" class="tabpane hidden"></div>
+        <div id="tab-words" class="tabpane hidden"></div>
+        <div id="tab-game" class="tabpane hidden"></div>
+        <div id="tab-settings" class="tabpane hidden"></div>
+      </div>
+    </section>
+
+    <!-- 学生工作台 -->
+    <section id="view-student" class="view hidden">
+      <nav class="sidenav">
+        <button class="navbtn active" data-tab="myassign">我的作业</button>
+        <button class="navbtn" data-tab="mycheckin">每日打卡</button>
+        <button class="navbtn" data-tab="myboard">成绩榜</button>
+        <button class="navbtn" data-tab="mygame">单词游戏</button>
+      </nav>
+      <div class="content">
+        <div id="tab-myassign" class="tabpane"></div>
+        <div id="tab-mycheckin" class="tabpane hidden"></div>
+        <div id="tab-myboard" class="tabpane hidden"></div>
+        <div id="tab-mygame" class="tabpane hidden"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
