@@ -11,5 +11,8 @@
     "tencentcloud-sdk-nodejs": "^4.1.273",
     "ws": "^8.21.1",
     "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

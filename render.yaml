@@ -9,8 +9,6 @@ services:
     startCommand: node server.js
     healthCheckPath: /
     envVars:
-      - key: PORT
-        value: 3000
       - key: TENCENT_SECRET_ID
         sync: false
       - key: TENCENT_SECRET_KEY
