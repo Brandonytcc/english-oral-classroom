@@ -4,13 +4,17 @@
   "description": "初中英语口语评测与每日打卡网站",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "tunnel": "lt --port 3000"
   },
   "dependencies": {
     "express": "^4.19.2",
     "tencentcloud-sdk-nodejs": "^4.1.273",
     "ws": "^8.21.1",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "localtunnel": "^2.0.2"
   },
   "engines": {
     "node": "22.x"
